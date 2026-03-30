@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Endfield 装備シミュ</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0e1a;--bg2:#11141f;--bg3:#181b28;--bg4:#1e2133;
+  --panel:#161929;--bd:#23273a;--bd2:#2d3248;
+  --acc:#7c83f5;--acc-d:rgba(124,131,245,.12);
+  --gold:#f7c23e;--gold-d:rgba(247,194,62,.1);
+  --grn:#2ecc8a;--grn-d:rgba(46,204,138,.09);
+  --red:#f07070;--pur:#b47cf5;
+  --t1:#eaecf8;--t2:#8c94b0;--t3:#4a5268;--t4:#282d3e;
+  --nav-h:44px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--t1);font-family:'Noto Sans JP',sans-serif;font-size:13px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 40% at 0% 0%,rgba(124,131,245,.05),transparent),
+             radial-gradient(ellipse 50% 35% at 100% 100%,rgba(180,124,245,.04),transparent)}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);
+    display:flex;align-items:center;background:rgba(12,14,26,.98);
+    backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:0 8px}
+.logo{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--acc);
+      letter-spacing:.14em;padding:0 10px;white-space:nowrap;flex-shrink:0}
+.tabs{display:flex;gap:1px;flex:1;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;
+     font-size:12px;font-weight:600;color:var(--t3);padding:5px 12px;border-radius:4px;
+     white-space:nowrap;transition:color .15s,background .15s;position:relative;letter-spacing:.05em}
+.tab.on{color:var(--acc);background:var(--acc-d)}
+.tab.on::after{content:'';position:absolute;bottom:-1px;left:6px;right:6px;height:2px;
+               background:var(--acc);border-radius:1px}
+
+/* LOADING */
+#loading{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;gap:14px;background:var(--bg)}
+.ring{width:34px;height:34px;border-radius:50%;border:2px solid var(--bd2);
+      border-top-color:var(--acc);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-t{font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--t3);letter-spacing:.1em}
+#err-wrap{display:none;position:fixed;inset:0;z-index:500;
+          align-items:center;justify-content:center;padding:20px;background:var(--bg)}
+.err-box{background:var(--bg3);border:1px solid rgba(240,112,112,.3);border-radius:10px;padding:20px;max-width:360px;width:100%}
+.err-ttl{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px}
+.err-msg{color:var(--t2);font-size:11px;line-height:1.7;white-space:pre-wrap}
+.err-btn{margin-top:12px;width:100%;padding:9px;border:none;border-radius:6px;background:var(--acc);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif}
+
+/* LAYOUT */
+#app{display:none;position:fixed;inset:0;top:var(--nav-h)}
+.page{display:none;height:100%}
+.page.on{display:flex}
+#page-sim{flex-direction:row}
+
+/* ── 左カラム ── */
+.col-l{
+  width:52%;flex-shrink:0;
+  display:flex;flex-direction:column;
+  padding:8px;gap:6px;
+  border-right:1px solid var(--bd);
+  overflow:hidden;
+}
+
+/* ── 右カラム ── */
+.col-r{
+  flex:1;display:flex;flex-direction:column;
+  overflow:hidden;background:var(--panel);
+}
+.col-r-body{
+  flex:1;overflow-y:auto;overscroll-behavior:contain;
+}
+.col-r-body::-webkit-scrollbar{width:2px}
+.col-r-body::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:1px}
+
+/* ── OP選択 ── */
+.op-sel{
+  background:var(--bg3);border:1px solid var(--bd2);border-radius:8px;
+  padding:9px 11px;cursor:pointer;transition:border-color .15s;
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.op-sel:active{border-color:var(--acc)}
+.op-sel-left{flex:1;min-width:0}
+.op-sel-label{font-family:'Rajdhani',sans-serif;font-size:8px;color:var(--t3);
+              letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.op-sel-name{font-size:15px;font-weight:700;color:var(--t1);white-space:nowrap;
+             overflow:hidden;text-overflow:ellipsis}
+.op-sel-name.ph{color:var(--t3);font-size:12px;font-weight:400}
+.op-sel-meta{font-size:10px;color:var(--t3);margin-top:2px;display:flex;align-items:center;gap:5px}
+.op-sel-ch{color:var(--t3);font-size:16px;flex-shrink:0}
+
+/* ── セットバー ── */
+.set-bar{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.set-chips{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none;padding-bottom:1px}
+.set-chips::-webkit-scrollbar{display:none}
+.sc{padding:4px 10px;border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;
+    transition:all .15s;border:1px solid var(--bd2);background:var(--bg4);color:var(--t3);
+    font-family:'Rajdhani',sans-serif;white-space:nowrap;flex-shrink:0;
+    display:flex;align-items:center;gap:4px}
+.sc.on{background:var(--acc-d);border-color:var(--acc);color:var(--acc)}
+.sc-x{font-size:11px;color:var(--t4);line-height:1}
+.sc:active .sc-x{color:var(--red)}
+.sc-ph{font-size:10px;color:var(--t3)}
+.new-sc{background:none;border:1px dashed var(--bd2);border-radius:12px;
+        padding:4px 9px;font-size:10px;font-family:'Rajdhani',sans-serif;font-weight:700;
+        color:var(--t3);cursor:pointer;transition:all .15s;flex-shrink:0}
+.new-sc:active{border-color:var(--acc);color:var(--acc)}
+.new-sc:disabled{opacity:.3;cursor:default}
+
+/* ── 武器スロット ── */
+.wep-slot{
+  background:var(--bg4);border:1px solid rgba(247,194,62,.2);
+  border-radius:8px;padding:8px 10px;cursor:pointer;transition:filter .15s;
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.wep-slot:active{filter:brightness(1.25)}
+.wep-info{flex:1;min-width:0}
+.wep-lbl{font-family:'Rajdhani',sans-serif;font-size:7px;color:rgba(247,194,62,.6);
+         letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
+.wep-name{font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wep-ph{font-size:11px;color:var(--t3)}
+.wep-sks{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+.wep-sk{font-size:9px;padding:1px 5px;border-radius:3px;
+        background:rgba(247,194,62,.08);color:rgba(247,194,62,.8);
+        border:1px solid rgba(247,194,62,.15)}
+.wep-atk{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;
+         color:var(--gold);flex-shrink:0;line-height:1}
+
+/* ── 防具グリッド ── */
+.armor-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex:1;min-height:0}
+.eq{
+  border-radius:8px;padding:9px 10px;cursor:pointer;
+  transition:filter .15s;
+  display:flex;flex-direction:column;
+  border:1px solid var(--bd);background:var(--bg4);
+  overflow:hidden;
+}
+.eq:active{filter:brightness(1.2)}
+/* 部位ごとのアクセントライン（上部のみ） */
+.eq.armor::before{content:'';display:block;height:2px;background:rgba(124,131,245,.5);
+                   border-radius:1px;margin-bottom:7px;flex-shrink:0}
+.eq.glove::before{content:'';display:block;height:2px;background:rgba(46,204,138,.5);
+                   border-radius:1px;margin-bottom:7px;flex-shrink:0}
+.eq.kit::before  {content:'';display:block;height:2px;background:rgba(247,194,62,.4);
+                   border-radius:1px;margin-bottom:7px;flex-shrink:0}
+.eq-hd{display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-shrink:0}
+.eq-ico{font-size:11px}
+.eq-lbl{font-family:'Rajdhani',sans-serif;font-size:7px;font-weight:700;
+        letter-spacing:.09em;text-transform:uppercase;color:var(--t3)}
+.eq-ch{margin-left:auto;font-size:10px;color:var(--t4)}
+.eq-ph{font-size:10px;color:var(--t3);flex:1;display:flex;align-items:center}
+.eq-name{font-size:10px;font-weight:700;color:var(--t1);line-height:1.35;
+         overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.eq-set{font-size:9px;color:var(--t3);margin-top:3px}
+
+/* ── 右パネル：ボーナス + セット効果 ── */
+/* セクション見出し */
+.r-sec-hd{
+  font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:700;
+  color:var(--t3);letter-spacing:.12em;text-transform:uppercase;
+  padding:8px 11px 4px;
+  display:flex;align-items:center;gap:6px;
+}
+.r-sec-hd::before{content:'';display:block;width:2px;height:10px;
+                   border-radius:1px;flex-shrink:0}
+.r-sec-hd.bonus::before{background:var(--gold)}
+.r-sec-hd.setfx::before{background:var(--grn)}
+
+/* ボーナス行 */
+.sr{display:flex;align-items:center;padding:6px 11px;
+    border-bottom:1px solid rgba(255,255,255,.03);gap:7px}
+.sr:last-child{border-bottom:none}
+.sr-ico{font-size:11px;width:16px;text-align:center;flex-shrink:0;color:var(--t2)}
+.sr-lbl{font-size:11px;color:var(--t2);flex:1}
+.sr-sub{font-size:8px;color:var(--t3)}
+.sr-right{display:flex;align-items:baseline;gap:4px;justify-content:flex-end}
+.sr-val{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--gold)}
+.sr-val.sm{font-size:13px}
+.sr-diff{font-family:'Rajdhani',sans-serif;font-size:9px;font-weight:700;
+         padding:1px 4px;border-radius:3px}
+.sr-diff.up{background:rgba(46,204,138,.15);color:var(--grn)}
+.sr-diff.dn{background:rgba(240,112,112,.15);color:var(--red)}
+.r-divider{height:1px;background:var(--bd);margin:4px 0}
+.r-empty{padding:18px 11px;font-size:11px;color:var(--t3);text-align:center;line-height:1.7}
+
+/* セット効果行 */
+.se-item{padding:7px 11px;border-bottom:1px solid rgba(255,255,255,.03)}
+.se-item:last-child{border-bottom:none}
+.se-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.se-name{font-size:11px;font-weight:700;flex:1}
+.se-badge{font-family:'Rajdhani',sans-serif;font-size:8px;font-weight:700;
+          padding:2px 6px;border-radius:8px;white-space:nowrap}
+.se-badge.on {background:rgba(247,194,62,.12);color:var(--gold);border:1px solid rgba(247,194,62,.25)}
+.se-badge.off{background:rgba(255,255,255,.04);color:var(--t3);border:1px solid var(--bd)}
+.se-ef{font-size:10px;color:var(--grn);line-height:1.5;padding:5px 8px;
+       background:var(--grn-d);border-radius:5px;border-left:2px solid var(--grn)}
+.se-dim{font-size:10px;color:var(--t3);line-height:1.5;padding:5px 8px;
+        background:rgba(255,255,255,.02);border-radius:5px;border-left:2px solid var(--t4)}
+
+/* ── 保存バー ── */
+.save-bar{
+  border-top:1px solid var(--bd);padding:6px 8px;
+  display:flex;gap:5px;flex-shrink:0;background:var(--panel);
+}
+.memo-f{flex:1;background:var(--bg4);border:1px solid var(--bd);border-radius:6px;
+         padding:5px 8px;color:var(--t1);font-size:10px;resize:none;outline:none;
+         font-family:'Noto Sans JP',sans-serif;line-height:1.5;transition:border-color .15s}
+.memo-f:focus{border-color:var(--grn)}
+.save-btn{padding:0 14px;border:none;border-radius:6px;font-size:11px;font-weight:700;
+          cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:.05em;
+          background:var(--grn-d);color:var(--grn);
+          border:1px solid rgba(46,204,138,.2);
+          transition:all .15s;white-space:nowrap;flex-shrink:0}
+.save-btn:active{background:var(--grn);color:#000}
+.save-btn:disabled{opacity:.3;cursor:default}
+
+
+/* ─── オペレーターアバター ─── */
+.op-avatar{
+  width:36px;height:36px;border-radius:6px;flex-shrink:0;
+  overflow:hidden;background:var(--bg4);border:1px solid var(--bd2);
+  display:flex;align-items:center;justify-content:center;
+}
+.op-avatar img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.op-avatar-fallback{
+  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;
+  color:var(--t2);letter-spacing:.02em;
+}
+/* パーティー内アバター（小） */
+.pm-avatar{
+  width:28px;height:28px;border-radius:5px;flex-shrink:0;
+  overflow:hidden;background:var(--bg3);border:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:center;
+}
+.pm-avatar img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.pm-avatar-fallback{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;color:var(--t3)}
+/* 装備タブOPバー内アバター（大） */
+.op-bar-avatar{
+  width:40px;height:40px;border-radius:7px;flex-shrink:0;
+  overflow:hidden;background:var(--bg4);border:1px solid var(--bd2);
+  display:flex;align-items:center;justify-content:center;
+}
+.op-bar-avatar img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.op-bar-avatar-fallback{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--t3)}
+
+/* TOAST */
+.toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+       background:var(--grn);color:#000;font-size:11px;font-weight:700;
+       padding:6px 16px;border-radius:14px;z-index:400;
+       opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;
+       font-family:'Rajdhani',sans-serif;letter-spacing:.04em}
+.toast.show{opacity:1}
+
+/* MODAL */
+.ov{display:none;position:fixed;inset:0;z-index:300;
+    background:rgba(0,0,0,.78);backdrop-filter:blur(4px);align-items:flex-end}
+.ov.on{display:flex}
+.sheet{background:var(--bg2);border:1px solid var(--bd2);border-bottom:none;
+       border-radius:14px 14px 0 0;width:100%;max-height:83vh;
+       display:flex;flex-direction:column;animation:shup .18s cubic-bezier(.3,0,.65,0)}
+@keyframes shup{from{transform:translateY(100%);opacity:0}to{opacity:1}}
+.sh-hnd{width:30px;height:3px;background:var(--bd2);border-radius:2px;margin:9px auto 0;flex-shrink:0}
+.sh-hd{padding:11px 14px 7px;flex-shrink:0}
+.sh-ttl{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--t1);letter-spacing:.06em}
+.sh-q{margin-top:7px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;
+      padding:9px 11px;color:var(--t1);font-size:14px;width:100%;outline:none;
+      font-family:'Noto Sans JP',sans-serif;transition:border-color .15s}
+.sh-q:focus{border-color:var(--acc)}
+.sh-inp{margin-top:7px;background:var(--bg3);border:1px solid var(--bd);border-radius:6px;
+        padding:9px 11px;color:var(--t1);font-size:14px;width:100%;outline:none;
+        font-family:'Noto Sans JP',sans-serif;transition:border-color .15s}
+.sh-inp:focus{border-color:var(--grn)}
+.sh-list{overflow-y:auto;flex:1;padding:2px 7px 14px}
+.sh-item{display:flex;align-items:center;gap:7px;padding:9px 8px;border-radius:7px;
+         cursor:pointer;border-bottom:1px solid rgba(255,255,255,.03);transition:background .13s}
+.sh-item:last-child{border-bottom:none}
+.sh-item:active,.sh-item.sel{background:var(--acc-d)}
+.sh-none{color:var(--t3);font-size:12px;padding:10px 8px;border-radius:7px;cursor:pointer}
+.sh-none:active{background:rgba(255,255,255,.04)}
+.sh-btn{margin:8px 14px 3px;padding:11px;border:none;border-radius:7px;font-size:12px;
+        font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:.04em;
+        background:var(--acc);color:#fff;width:calc(100% - 28px)}
+.sh-btn:active{opacity:.8}.sh-btn:disabled{background:var(--bd);color:var(--t3);cursor:default}
+.grp-l{padding:6px 8px 2px;font-family:'Rajdhani',sans-serif;font-size:8px;
+        font-weight:700;color:var(--acc);letter-spacing:.09em}
+.bdg{font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;flex-shrink:0}
+
+/* スクロールページ（他タブ） */
+.page.on.scroll{overflow-y:auto;flex-direction:column;padding:10px;overscroll-behavior:contain}
+.page.on.scroll::-webkit-scrollbar{width:2px}
+.page.on.scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:1px}
+
+/* OP一覧 */
+.frow{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.chip{background:var(--bg3);border:1px solid var(--bd);border-radius:14px;
+      padding:4px 11px;font-size:11px;color:var(--t3);cursor:pointer;
+      font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:.04em;transition:all .15s;white-space:nowrap}
+.chip.on{background:var(--acc-d);border-color:var(--acc);color:var(--acc)}
+.op-row{background:var(--bg3);border:1px solid var(--bd);border-radius:8px;
+        padding:10px 12px;display:flex;align-items:center;gap:7px;margin-bottom:4px;
+        cursor:pointer;transition:all .15s}
+.op-row:active{border-color:var(--acc);background:var(--acc-d)}
+.op-row.sv{border-left:2px solid var(--grn)}
+.op-nm{font-size:13px;font-weight:700;flex:1}.op-sub{font-size:9px;color:var(--t3);margin-top:1px}
+.op-eq-preview{font-size:9px;color:var(--acc);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.sv-bdg{font-family:'Rajdhani',sans-serif;font-size:8px;font-weight:700;
+        padding:2px 6px;border-radius:3px;background:var(--grn-d);
+        color:var(--grn);border:1px solid rgba(46,204,138,.2);flex-shrink:0}
+/* op detail */
+.op-dt{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.op-dt-nm{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;flex:1;letter-spacing:.05em}
+.ge-btn{width:100%;padding:10px;border:none;border-radius:7px;font-size:12px;font-weight:700;
+        cursor:pointer;font-family:'Rajdhani',sans-serif;background:var(--acc-d);color:var(--acc);
+        border:1px solid rgba(124,131,245,.22);margin-bottom:9px;transition:all .15s;letter-spacing:.04em}
+.ge-btn:active{background:var(--acc);color:#fff}
+.os-item{background:var(--bg3);border:1px solid var(--bd);border-radius:7px;
+         padding:9px 11px;margin-bottom:4px;display:flex;align-items:center;gap:8px;
+         cursor:pointer;transition:all .15s}
+.os-item:active{border-color:var(--acc)}
+.os-body{flex:1;min-width:0}
+.os-name{font-size:12px;font-weight:700}
+.os-sub{font-size:9px;color:var(--t3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-del{background:none;border:none;color:var(--t4);font-size:14px;cursor:pointer;padding:3px 5px;border-radius:4px;flex-shrink:0;transition:color .13s}
+.os-del:active{color:var(--red)}
+.no-sv{text-align:center;padding:18px 0;color:var(--t3);font-size:11px;line-height:1.8}
+
+/* パーティー */
+.pt-card{background:var(--bg3);border:1px solid var(--bd);border-radius:9px;
+         padding:11px;margin-bottom:7px;position:relative;overflow:hidden;
+         border-left:3px solid var(--pt-color,var(--bd))}
+.pt-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+                 background:linear-gradient(90deg,transparent,var(--pur),transparent)}
+.pt-hd{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.pt-nm{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--t1);flex:1;letter-spacing:.05em}
+.pt-members{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.pm{background:var(--bg4);border-radius:6px;padding:8px 9px;cursor:pointer;
+    transition:all .15s;border:1px solid var(--bd);position:relative;overflow:hidden}
+.pm::before{content:"";position:absolute;top:0;left:0;width:3px;height:100%;
+             background:var(--pm-color,var(--bd));border-radius:0}
+.pm:active{border-color:var(--acc)}
+.pm-num{font-family:'Rajdhani',sans-serif;font-size:7px;color:var(--t4);letter-spacing:.08em;margin-bottom:2px}
+.pm-op{font-size:11px;font-weight:700;color:var(--t1);margin-bottom:1px}
+.pm-set{font-size:9px;color:var(--acc);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-ph{font-size:10px;color:var(--t4)}
+.pm-wep{font-size:9px;color:rgba(247,194,62,.8);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-memo{font-size:9px;color:var(--acc);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-acts{display:flex;gap:5px;margin-top:7px}
+.pb{flex:1;padding:7px;border:none;border-radius:6px;font-size:10px;font-weight:700;
+    cursor:pointer;font-family:'Rajdhani',sans-serif;transition:all .15s}
+.pb.ld{background:rgba(180,124,245,.1);color:var(--pur);border:1px solid rgba(180,124,245,.2)}
+.pb.ld:active{background:var(--pur);color:#000}
+.pb.dl{background:rgba(240,112,112,.1);color:var(--red);border:1px solid rgba(240,112,112,.2);flex:0 0 36px}
+.pb.dl:active{background:var(--red);color:#fff}
+.new-pt{width:100%;background:none;border:1px dashed var(--bd2);border-radius:9px;
+        padding:12px;color:var(--t3);font-size:12px;cursor:pointer;transition:all .15s;
+        font-family:'Rajdhani',sans-serif;letter-spacing:.04em}
+.new-pt:active{border-color:var(--pur);color:var(--pur)}
+.pt-empty{text-align:center;padding:30px 16px;color:var(--t3);font-size:11px;line-height:1.9}
+
+/* 防具・武器一覧 */
+.a-sh{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--acc);
+      letter-spacing:.06em;padding-bottom:5px;margin-bottom:5px;
+      border-bottom:1px solid var(--bd);display:flex;align-items:baseline;gap:5px}
+.a-sc{font-size:8px;color:var(--t3);font-family:'Noto Sans JP',sans-serif;font-weight:400}
+.sef-b{padding:6px 8px;background:rgba(180,124,245,.07);border-radius:5px;
+       border-left:2px solid var(--pur);margin-bottom:5px}
+.sef-t{font-size:10px;color:var(--t2);line-height:1.5}
+.a-c{background:var(--bg3);border:1px solid var(--bd);border-radius:7px;padding:8px 11px;margin-bottom:3px}
+.a-t{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.a-n{font-size:11px;font-weight:700;flex:1}
+.a-p{font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(255,255,255,.06);color:var(--t2);flex-shrink:0}
+.stags{display:flex;flex-wrap:wrap;gap:3px}
+.stag{font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(255,255,255,.04);color:var(--t2);display:flex;gap:2px}
+.stag b{color:var(--grn);font-weight:700}
+.w-c{background:var(--bg3);border:1px solid var(--bd);border-radius:7px;padding:8px 11px;margin-bottom:3px}
+.w-t{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.w-n{font-size:12px;font-weight:700;flex:1}
+.w-atk{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;color:var(--gold);
+        padding:2px 6px;border-radius:3px;background:var(--gold-d);
+        border:1px solid rgba(247,194,62,.15);flex-shrink:0}
+.w-sks{display:flex;flex-wrap:wrap;gap:3px}
+.w-sk{font-size:9px;padding:2px 6px;border-radius:3px;
+      background:rgba(124,131,245,.08);color:var(--acc);border:1px solid rgba(124,131,245,.15)}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="ring"></div><div class="load-t">LOADING...</div></div>
+<div id="err-wrap">
+  <div class="err-box">
+    <div class="err-ttl">接続エラー</div>
+    <div class="err-msg" id="err-msg"></div>
+    <button class="err-btn" onclick="loadData()">再接続</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<nav id="main-nav" style="display:none">
+  <div class="logo">ENDFIELD</div>
+  <div class="tabs">
+    <button class="tab on" onclick="goto('sim',this)">装備</button>
+    <button class="tab"    onclick="goto('ops',this)">オペレーター</button>
+    <button class="tab"    onclick="goto('party',this)">パーティー</button>
+    <button class="tab"    onclick="goto('armors',this)">防具</button>
+    <button class="tab"    onclick="goto('weapons',this)">武器</button>
+  </div>
+</nav>
+
+<div id="app">
+
+<!-- 装備タブ -->
+<div id="page-sim" class="page on">
+  <!-- 左 -->
+  <div class="col-l">
+    <!-- OP選択 -->
+    <div class="op-sel" onclick="openOv('op')">
+      <div id="op-avatar-wrap" style="flex-shrink:0"></div>
+      <div class="op-sel-left">
+        <div class="op-sel-label">オペレーター</div>
+        <div class="op-sel-name ph" id="op-nm">選択してください</div>
+        <div class="op-sel-meta" id="op-meta"></div>
+      </div>
+      <span class="op-sel-ch">›</span>
+    </div>
+    <!-- セット -->
+    <div class="set-bar">
+      <div class="set-chips" id="set-chips"><span class="sc-ph">オペレーターを選択</span></div>
+      <button class="new-sc" id="btn-new-set" onclick="newSet()" disabled>＋</button>
+    </div>
+    <!-- 武器 -->
+    <div class="wep-slot" onclick="openOv('wep')">
+      <div class="wep-info">
+        <div class="wep-lbl">⚔ 武器</div>
+        <div id="wep-nm" class="wep-ph">タップして選択</div>
+        <div class="wep-sks" id="wep-sks" style="display:none"></div>
+      </div>
+      <div class="wep-atk" id="wep-atk" style="display:none"></div>
+    </div>
+    <!-- 防具4枠 -->
+    <div class="armor-grid">
+      <div class="eq armor" id="slot0" onclick="openOv('armor',0)">
+        <div class="eq-hd"><span class="eq-ico">🛡</span><span class="eq-lbl">防具</span><span class="eq-ch">›</span></div>
+        <div class="eq-ph">選択</div>
+      </div>
+      <div class="eq glove" id="slot1" onclick="openOv('armor',1)">
+        <div class="eq-hd"><span class="eq-ico">🧤</span><span class="eq-lbl">グローブ</span><span class="eq-ch">›</span></div>
+        <div class="eq-ph">選択</div>
+      </div>
+      <div class="eq kit" id="slot2" onclick="openOv('armor',2)">
+        <div class="eq-hd"><span class="eq-ico">⚙</span><span class="eq-lbl">アクセ1</span><span class="eq-ch">›</span></div>
+        <div class="eq-ph">選択</div>
+      </div>
+      <div class="eq kit" id="slot3" onclick="openOv('armor',3)">
+        <div class="eq-hd"><span class="eq-ico">⚙</span><span class="eq-lbl">アクセ2</span><span class="eq-ch">›</span></div>
+        <div class="eq-ph">選択</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右 -->
+  <div class="col-r">
+    <div class="col-r-body" id="col-r-body">
+      <div class="r-empty">防具・武器を<br>選択してください</div>
+    </div>
+    <div class="save-bar">
+      <textarea id="memo-f" class="memo-f" rows="2" placeholder="メモ…"></textarea>
+      <button class="save-btn" id="btn-save" onclick="quickSave()" disabled>💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- オペレータータブ -->
+<div id="page-ops" class="page">
+  <div class="frow" id="op-filters"></div>
+  <div id="op-rows"></div>
+</div>
+
+<!-- パーティータブ -->
+<div id="page-party" class="page">
+  <div id="party-list"></div>
+</div>
+
+<!-- 防具タブ -->
+<div id="page-armors" class="page"><div id="armor-rows"></div></div>
+
+<!-- 武器タブ -->
+<div id="page-weapons" class="page"><div id="weapon-rows"></div></div>
+
+</div>
+
+<!-- モーダル群 -->
+<div class="ov" id="ov-op" onclick="closeOv('op')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl">オペレーター選択</div>
+      <input class="sh-q" type="text" placeholder="名前・クラス・属性で検索…" oninput="fOp(this.value)" id="q-op"></div>
+    <div class="sh-list" id="list-op"></div>
+  </div>
+</div>
+<div class="ov" id="ov-wep" onclick="closeOv('wep')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl">武器選択</div>
+      <input class="sh-q" type="text" placeholder="武器名・種類で検索…" oninput="fWep(this.value)" id="q-wep"></div>
+    <div class="sh-list" id="list-wep"></div>
+  </div>
+</div>
+<div class="ov" id="ov-armor" onclick="closeOv('armor')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl" id="armor-ttl">防具選択</div>
+      <input class="sh-q" type="text" placeholder="装備名・セット名で検索…" oninput="fArmor(this.value)" id="q-armor"></div>
+    <div class="sh-list" id="list-armor"></div>
+  </div>
+</div>
+<div class="ov" id="ov-opd" onclick="closeOv('opd')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl" id="opd-ttl"></div></div>
+    <div class="sh-list" id="opd-body"></div>
+  </div>
+</div>
+<div class="ov" id="ov-sn" onclick="closeOv('sn')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl">セット名を入力</div>
+      <input class="sh-inp" type="text" placeholder="例: メイン、対ボス用…" id="inp-sn"
+             maxlength="20" oninput="document.getElementById('btn-snok').disabled=!this.value.trim()"
+             onkeydown="if(event.key==='Enter')document.getElementById('btn-snok').click()"></div>
+    <button class="sh-btn" id="btn-snok" onclick="confirmSN()" disabled>作成して保存</button>
+  </div>
+</div>
+<div class="ov" id="ov-pn" onclick="closeOv('pn')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl">パーティー名を入力</div>
+      <input class="sh-inp" type="text" placeholder="例: 灼熱PT…" id="inp-pn"
+             maxlength="20" oninput="document.getElementById('btn-pnok').disabled=!this.value.trim()"
+             onkeydown="if(event.key==='Enter')document.getElementById('btn-pnok').click()"></div>
+    <button class="sh-btn" id="btn-pnok" onclick="confirmPN()" disabled>作成する</button>
+  </div>
+</div>
+<div class="ov" id="ov-pmop" onclick="closeOv('pmop')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl" id="pmop-ttl">メンバーを選択</div>
+      <input class="sh-q" type="text" placeholder="名前で検索…" oninput="fPmOp(this.value)" id="q-pmop"></div>
+    <div class="sh-list" id="list-pmop"></div>
+  </div>
+</div>
+<div class="ov" id="ov-pmset" onclick="closeOv('pmset')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sh-hnd"></div>
+    <div class="sh-hd"><div class="sh-ttl" id="pmset-ttl">セットを選択</div></div>
+    <div class="sh-list" id="list-pmset"></div>
+  </div>
+</div>
+
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycbwUhpwFV3G7GD_J0ySEU7bc8nyJLUJjTgdRa4dBQW3pFVpPRiBhUpsDuHJbV3Um2_vlDw/exec';
+const INLINE_DATA=null;
+let OPS=[],ARMORS=[],WEAPONS=[],SET_EFF={};
+let selOp=null,selWep=null,slots=[null,null,null,null];
+let curSetId=null,prevBonus=null,curSlot=0;
+let fStar='all',fElem='all',fCls='all',filtersBuilt=false;
+let ePtyId=null,ePmIdx=null;
+
+const SLOT_DEF=[
+  {part:'防具',    label:'防具',    icon:'🛡',cls:'armor'},
+  {part:'グローブ',label:'グローブ',icon:'🧤',cls:'glove'},
+  {part:'キット',  label:'アクセ1', icon:'⚙', cls:'kit'},
+  {part:'キット',  label:'アクセ2', icon:'⚙', cls:'kit'},
+];
+const CLS_S={ガード:{bg:'rgba(239,68,68,.18)',c:'#f87171'},ストライカー:{bg:'rgba(249,115,22,.18)',c:'#fb923c'},
+  ヴァンガード:{bg:'rgba(234,179,8,.18)',c:'#fbbf24'},ディフェンダー:{bg:'rgba(59,130,246,.18)',c:'#60a5fa'},
+  キャスター:{bg:'rgba(168,85,247,.18)',c:'#c084fc'},サポーター:{bg:'rgba(16,185,129,.18)',c:'#34d399'}};
+const EL_S={物理:{bg:'rgba(100,116,139,.18)',c:'#94a3b8'},熱:{bg:'rgba(194,65,12,.18)',c:'#fb923c'},
+  電気:{bg:'rgba(109,40,217,.18)',c:'#c084fc'},氷:{bg:'rgba(2,132,199,.18)',c:'#7dd3fc'},
+  自然:{bg:'rgba(21,128,61,.18)',c:'#4ade80'}};
+const STAR_C={6:'#fbbf24',5:'#7dd3fc',4:'#94a3b8'};
+const WEP_MAP={'強さ':'str','敏捷':'agi','知性':'int','意志':'will','攻撃力%':'atkPct','攻撃力UP%':'atkPct',
+  '会心率%':'crit','通常攻撃UP%':'batkUp','通常攻撃ダメUP%':'batkUp','戦技ダメUP%':'skillUp',
+  '連携技ダメUP%':'comboUp','必殺技ダメUP%':'ultUp','全スキルUP%':'allSkillUp',
+  '物理ダメUP%':'physUp','熱ダメUP%':'heatUp','電気ダメUP%':'elecUp','氷ダメUP%':'cryoUp',
+  '自然ダメUP%':'natUp','アーツ強度':'artsStr','全アーツUP%':'artsUp'};
+
+const BGROUPS=[
+  {lbl:'能力値',rows:[
+    {ico:'🛡',lbl:'防御力',k:'def',pct:false,sub:v=>v>0?`軽減≈${(v/(v+100)*100).toFixed(1)}%`:''},
+    {ico:'💪',lbl:'強さ',k:'str',pct:false},{ico:'⚡',lbl:'敏捷',k:'agi',pct:false},
+    {ico:'🧠',lbl:'知性',k:'int',pct:false},{ico:'🌀',lbl:'意志',k:'will',pct:false},
+  ]},
+  {lbl:'ダメージ',rows:[
+    {ico:'✦',lbl:'会心率',k:'crit',pct:true},{ico:'⚔',lbl:'通常攻撃UP',k:'batkUp',pct:true},
+    {ico:'⚡',lbl:'戦技ダメUP',k:'skillUp',pct:true},{ico:'🔗',lbl:'連携技ダメUP',k:'comboUp',pct:true},
+    {ico:'💥',lbl:'必殺技ダメUP',k:'ultUp',pct:true},{ico:'📊',lbl:'全スキルUP',k:'allSkillUp',pct:true},
+    {ico:'◎',lbl:'メイン能力',k:'mainUp',pct:true},{ico:'📈',lbl:'攻撃力UP%',k:'atkPct',pct:true},
+    {ico:'🔥',lbl:'熱ダメUP',k:'heatUp',pct:true},{ico:'❄',lbl:'氷ダメUP',k:'cryoUp',pct:true},
+    {ico:'⚡',lbl:'電気ダメUP',k:'elecUp',pct:true},{ico:'🌿',lbl:'自然ダメUP',k:'natUp',pct:true},
+    {ico:'🗡',lbl:'物理ダメUP',k:'physUp',pct:true},
+  ]},
+  {lbl:'その他',rows:[
+    {ico:'🗡',lbl:'攻撃力(固定)',k:'atkFlat',pct:false},{ico:'❤',lbl:'HP(固定)',k:'hpFlat',pct:false},
+    {ico:'💫',lbl:'アーツ強度',k:'artsStr',pct:false},{ico:'❤',lbl:'HP%',k:'hpPct',pct:true},
+    {ico:'💚',lbl:'治療UP%',k:'treatUp',pct:true},
+  ]},
+];
+
+// Storage
+function gS(n){try{return JSON.parse(localStorage.getItem('ef_sets_'+n))||[];}catch(e){return[];}}
+function sS(n,a){localStorage.setItem('ef_sets_'+n,JSON.stringify(a));}
+function gSet(n,id){return gS(n).find(s=>s.id===id)||null;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function gP(){try{return JSON.parse(localStorage.getItem('ef_parties'))||[];}catch(e){return[];}}
+function sP(a){localStorage.setItem('ef_parties',JSON.stringify(a));}
+
+// Load
+async function loadData(){
+  document.getElementById('loading').style.display='flex';
+  document.getElementById('err-wrap').style.display='none';
+  document.getElementById('main-nav').style.display='none';
+  document.getElementById('app').style.display='none';
+  if(INLINE_DATA){boot(INLINE_DATA);return;}
+  try{const r=await fetch(GAS_URL);if(!r.ok)throw new Error('HTTP '+r.status);boot(await r.json());}
+  catch(e){
+    document.getElementById('loading').style.display='none';
+    document.getElementById('err-msg').textContent='通信エラー: '+e.message;
+    document.getElementById('err-wrap').style.display='flex';
+  }
+}
+function boot(d){
+  OPS=d.operators||[];ARMORS=d.armors||[];WEAPONS=d.weapons||[];SET_EFF=d.setEffects||{};
+  document.getElementById('loading').style.display='none';
+  document.getElementById('main-nav').style.display='flex';
+  document.getElementById('app').style.display='block';
+  updateSim();
+}
+
+// NAV
+function goto(id,btn){
+  document.querySelectorAll('#app .page').forEach(p=>{p.classList.remove('on','scroll');});
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  const pg=document.getElementById('page-'+id);
+  pg.classList.add('on');
+  if(id!=='sim')pg.classList.add('scroll');
+  btn.classList.add('on');
+  if(id==='ops')renderOps();if(id==='armors')renderArmorList();
+  if(id==='weapons')renderWeaponList();if(id==='party')renderPartyList();
+}
+function gotoSim(){
+  document.querySelectorAll('#app .page').forEach(p=>{p.classList.remove('on','scroll');});
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('page-sim').classList.add('on');
+  document.querySelector('.tab').classList.add('on');
+}
+
+// Overlay
+function openOv(t,arg){
+  if(t==='op'){document.getElementById('q-op').value='';renderOpM('');document.getElementById('ov-op').classList.add('on');}
+  else if(t==='wep'){document.getElementById('q-wep').value='';renderWepM('');document.getElementById('ov-wep').classList.add('on');}
+  else{
+    curSlot=arg;
+    document.getElementById('armor-ttl').textContent=SLOT_DEF[arg].icon+' '+SLOT_DEF[arg].label+'を選択';
+    document.getElementById('q-armor').value='';renderArmorM('');
+    document.getElementById('ov-armor').classList.add('on');
+  }
+}
+function closeOv(t){document.getElementById('ov-'+t).classList.remove('on');}
+
+// OP Modal
+function renderOpM(q){
+  const f=OPS.filter(o=>!q||o.name.includes(q)||o.cls.includes(q)||o.elem.includes(q));
+  document.getElementById('list-op').innerHTML=f.map(op=>{
+    const cs=CLS_S[op.cls]||{},es=EL_S[op.elem]||{};
+    return `<div class="sh-item${selOp&&op.name===selOp.name?' sel':''}" onclick="pickOp('${op.name}')">
+      ${avatar(op,'md')}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${op.name}</div>
+        <div style="font-size:9px;margin-top:1px;display:flex;gap:4px">
+          <span style="color:${STAR_C[op.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(op.star||4)}</span>
+          <span class="bdg" style="background:${cs.bg};color:${cs.c}">${op.cls}</span>
+          <span class="bdg" style="background:${es.bg};color:${es.c}">${op.elem}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('')||'<div style="padding:12px;color:var(--t3);font-size:12px">見つかりません</div>';
+}
+function fOp(q){renderOpM(q);}
+function pickOp(n){
+  selOp=OPS.find(o=>o.name===n)||null;
+  selWep=null;slots=[null,null,null,null];curSetId=null;
+  document.getElementById('memo-f').value='';
+  closeOv('op');updateSim();
+}
+
+// Wep Modal
+function renderWepM(q){
+  const f=WEAPONS.filter(w=>!q||w.name.includes(q)||w.type.includes(q));
+  const g={};f.forEach(w=>{(g[w.type]=g[w.type]||[]).push(w);});
+  let h=`<div class="sh-none" onclick="pickWep(null)">— なし —</div>`;
+  Object.entries(g).forEach(([t,items])=>{
+    h+=`<div class="grp-l">${t}</div>`;
+    items.forEach(w=>{
+      h+=`<div class="sh-item${selWep&&selWep.name===w.name?' sel':''}" onclick="pickWep('${w.name}')">
+        <span style="font-size:9px;color:${STAR_C[w.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(w.star||4)}</span>
+        <span style="flex:1;font-size:13px;font-weight:700">${w.name}</span>
+        <span style="font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--gold)">ATK ${w.baseAtk}</span>
+      </div>`;
+    });
+  });
+  document.getElementById('list-wep').innerHTML=h;
+}
+function fWep(q){renderWepM(q);}
+function pickWep(n){prevBonus=agg();selWep=n?WEAPONS.find(w=>w.name===n):null;closeOv('wep');updateSim();}
+
+// Armor Modal
+function renderArmorM(q){
+  const al=SLOT_DEF[curSlot].part;
+  const f=ARMORS.filter(a=>a.part===al&&(!q||a.name.includes(q)||a.set.includes(q)));
+  const g={};f.forEach(a=>{(g[a.set]=g[a.set]||[]).push(a);});
+  let h=`<div class="sh-none" onclick="pickArmor(null)">— なし —</div>`;
+  Object.entries(g).forEach(([s,items])=>{
+    h+=`<div class="grp-l">${s}</div>`;
+    items.forEach(a=>{
+      const p=[];
+      if(a.def)p.push(`防${a.def}`);if(a.str)p.push(`強${a.str}`);if(a.agi)p.push(`敏${a.agi}`);
+      if(a.int)p.push(`知${a.int}`);if(a.will)p.push(`意${a.will}`);if(a.crit)p.push(`会${a.crit}%`);
+      h+=`<div class="sh-item${slots[curSlot]&&slots[curSlot].name===a.name?' sel':''}" onclick="pickArmor('${a.name}')">
+        <span style="flex:1;font-size:12px;font-weight:700">${a.name}</span>
+        <span style="font-size:9px;color:var(--grn)">${p.slice(0,3).join('·')}</span>
+      </div>`;
+    });
+  });
+  document.getElementById('list-armor').innerHTML=h;
+}
+function fArmor(q){renderArmorM(q);}
+function pickArmor(n){prevBonus=agg();slots[curSlot]=n?ARMORS.find(a=>a.name===n):null;closeOv('armor');updateSim();}
+
+// Agg
+function agg(){
+  const b={def:0,str:0,agi:0,int:0,will:0,crit:0,batkUp:0,skillUp:0,comboUp:0,
+           ultUp:0,allSkillUp:0,atkPct:0,mainUp:0,physUp:0,heatUp:0,
+           elecUp:0,cryoUp:0,natUp:0,artsStr:0,atkFlat:0,hpFlat:0,hpPct:0,treatUp:0,artsUp:0};
+  slots.forEach(a=>{if(!a)return;Object.keys(b).forEach(k=>{b[k]+=(a[k]||0);});});
+  if(selWep){
+    [[selWep.sk1Name,selWep.sk1Val],[selWep.sk2Name,selWep.sk2Val],[selWep.sk3Name,selWep.sk3Val]]
+    .forEach(([n,v])=>{if(n&&v){const k=WEP_MAP[n];if(k&&k in b)b[k]+=v;}});
+  }
+  return b;
+}
+function dif(cur,prev,k,pct){
+  if(!prev)return '';const d=cur-prev;if(Math.abs(d)<0.05)return '';
+  const s=d>0?'+':'',v=pct?`${s}${d.toFixed(1)}%`:`${s}${Math.round(d)}`;
+  return `<span class="sr-diff ${d>0?'up':'dn'}">${v}</span>`;
+}
+
+// Sets
+function renderSetChips(){
+  const el=document.getElementById('set-chips');
+  const nb=document.getElementById('btn-new-set');
+  const sb=document.getElementById('btn-save');
+  if(!selOp){el.innerHTML='<span class="sc-ph">オペレーターを選択</span>';nb.disabled=true;sb.disabled=true;return;}
+  nb.disabled=false;sb.disabled=false;
+  const sets=gS(selOp.name);
+  if(!sets.length){el.innerHTML='<span class="sc-ph">「＋」でセット作成</span>';}
+  else{el.innerHTML=sets.map(s=>`
+    <div class="sc${s.id===curSetId?' on':''}" onclick="loadSById('${s.id}')">
+      ${s.name}<span class="sc-x" onclick="event.stopPropagation();delSet('${s.id}')">×</span>
+    </div>`).join('');}
+}
+function loadSById(id){
+  if(!selOp)return;const s=gSet(selOp.name,id);if(!s)return;
+  prevBonus=agg();curSetId=id;
+  selWep=s.wep?WEAPONS.find(w=>w.name===s.wep)||null:null;
+  slots=(s.slots||[null,null,null,null]).map(n=>n?ARMORS.find(a=>a.name===n)||null:null);
+  document.getElementById('memo-f').value=s.memo||'';
+  updateSim();showToast(`「${s.name}」を読み込みました`);
+}
+function newSet(){
+  if(!selOp)return;
+  document.getElementById('inp-sn').value='';document.getElementById('btn-snok').disabled=true;
+  document.getElementById('ov-sn').classList.add('on');
+  setTimeout(()=>document.getElementById('inp-sn').focus(),300);
+}
+function quickSave(){if(!selOp)return;if(!curSetId){newSet();return;}doSave(curSetId);}
+function confirmSN(){
+  const name=document.getElementById('inp-sn').value.trim();if(!name||!selOp)return;
+  closeOv('sn');
+  const id=uid();const sets=gS(selOp.name);
+  sets.push({id,name,wep:selWep?selWep.name:null,
+    slots:slots.map(a=>a?a.name:null),
+    memo:document.getElementById('memo-f').value.trim(),savedAt:Date.now()});
+  sS(selOp.name,sets);curSetId=id;updateSim();showToast(`「${name}」を保存しました`);
+}
+function doSave(id){
+  const sets=gS(selOp.name);const idx=sets.findIndex(s=>s.id===id);if(idx<0)return;
+  sets[idx]={...sets[idx],wep:selWep?selWep.name:null,
+    slots:slots.map(a=>a?a.name:null),
+    memo:document.getElementById('memo-f').value.trim(),savedAt:Date.now()};
+  sS(selOp.name,sets);updateSim();showToast(`「${sets[idx].name}」を上書き保存しました`);
+}
+function delSet(id){
+  if(!selOp||!confirm('削除しますか？'))return;
+  sS(selOp.name,gS(selOp.name).filter(s=>s.id!==id));
+  if(curSetId===id){curSetId=null;selWep=null;slots=[null,null,null,null];document.getElementById('memo-f').value='';}
+  updateSim();showToast('削除しました');
+}
+
+// Update
+function updateSim(){
+  // OP
+  const nm=document.getElementById('op-nm'),mt=document.getElementById('op-meta');
+  document.getElementById('op-avatar-wrap').innerHTML=selOp?avatar(selOp,'lg'):'';
+  if(selOp){
+    const cs=CLS_S[selOp.cls]||{},es=EL_S[selOp.elem]||{};
+    nm.className='op-sel-name';nm.textContent=selOp.name;
+    mt.innerHTML=`<span style="font-size:8px;color:${STAR_C[selOp.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(selOp.star||4)}</span>
+      <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${cs.bg};color:${cs.c}">${selOp.cls}</span>
+      <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${es.bg};color:${es.c}">${selOp.elem}</span>`;
+  }else{nm.className='op-sel-name ph';nm.textContent='選択してください';mt.innerHTML='';}
+  renderSetChips();
+
+  // Wep
+  if(selWep){
+    document.getElementById('wep-nm').textContent=selWep.name;
+    document.getElementById('wep-nm').className='wep-name';
+    const sks=[[selWep.sk1Name,selWep.sk1Val],[selWep.sk2Name,selWep.sk2Val],[selWep.sk3Name,selWep.sk3Val]].filter(([n,v])=>n&&v);
+    const sd=document.getElementById('wep-sks');
+    sd.innerHTML=sks.map(([n,v])=>`<span class="wep-sk">${n}+${v}</span>`).join('');
+    sd.style.display=sks.length?'flex':'none';
+    const ad=document.getElementById('wep-atk');ad.textContent=selWep.baseAtk;ad.style.display='block';
+  }else{
+    document.getElementById('wep-nm').textContent='タップして選択';
+    document.getElementById('wep-nm').className='wep-ph';
+    document.getElementById('wep-sks').style.display='none';
+    document.getElementById('wep-atk').style.display='none';
+  }
+
+  // Slots
+  slots.forEach((a,i)=>{
+    const el=document.getElementById('slot'+i),sd=SLOT_DEF[i];
+    el.innerHTML=`<div class="eq-hd"><span class="eq-ico">${sd.icon}</span><span class="eq-lbl">${sd.label}</span><span class="eq-ch">›</span></div>`+
+      (a?`<div class="eq-name">${a.name}</div><div class="eq-set">${a.set}</div>`:`<div class="eq-ph">選択</div>`);
+  });
+
+  const b=agg();const prev=prevBonus;
+  const any=slots.some(Boolean)||selWep;
+
+  // 右パネル（ボーナス + セット効果を縦に並べる）
+  const rb=document.getElementById('col-r-body');
+  if(!any){rb.innerHTML='<div class="r-empty">防具・武器を<br>選択してください</div>';return;}
+
+  let h='';
+
+  // ── 装備ボーナス ──
+  h+=`<div class="r-sec-hd bonus">装備ボーナス</div>`;
+  let bonusHtml='';
+  BGROUPS.forEach(grp=>{
+    const vis=grp.rows.filter(r=>(b[r.k]||0)!==0);if(!vis.length)return;
+    bonusHtml+=`<div style="font-family:'Rajdhani',sans-serif;font-size:7px;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;padding:4px 11px 1px;background:rgba(255,255,255,.02)">${grp.lbl}</div>`;
+    vis.forEach(r=>{
+      const v=b[r.k]||0;
+      const disp=r.pct?`+${v.toFixed(1)}%`:`+${v.toLocaleString()}`;
+      const sub=r.sub?r.sub(v):'';
+      const df=dif(v,prev?prev[r.k]:null,r.k,r.pct);
+      bonusHtml+=`<div class="sr">
+        <div class="sr-ico">${r.ico}</div>
+        <div style="flex:1"><div class="sr-lbl">${r.lbl}</div>${sub?`<div class="sr-sub">${sub}</div>`:''}</div>
+        <div class="sr-right">${df}<div class="sr-val${r.pct?' sm':''}">${disp}</div></div>
+      </div>`;
+    });
+  });
+  h+=bonusHtml||`<div class="r-empty" style="padding:10px 11px">ボーナスなし</div>`;
+
+  // ── セット効果 ──
+  const cnt={};slots.forEach(a=>{if(a)cnt[a.set]=(cnt[a.set]||0)+1;});
+  const allS=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  if(allS.length){
+    h+=`<div class="r-divider"></div><div class="r-sec-hd setfx">セット効果</div>`;
+    allS.forEach(([sn,n])=>{
+      const e=SET_EFF[sn]||{},txt=e.effect||e[2]||'';
+      const active=n>=3;
+      h+=`<div class="se-item">
+        <div class="se-top">
+          <div class="se-name">${sn}</div>
+          <div class="se-badge ${active?'on':'off'}">${n}/3${active?' ✓':''}</div>
+        </div>
+        ${txt?`<div class="${active?'se-ef':'se-dim'}">${!active?`（あと${3-n}ピース）`:''}${txt}</div>`:''}
+      </div>`;
+    });
+  }
+  rb.innerHTML=h;
+}
+
+// OP List
+function renderOps(){
+  if(!filtersBuilt){
+    const stars=[...new Set(OPS.map(o=>o.star))].sort((a,b)=>b-a);
+    const elems=[...new Set(OPS.map(o=>o.elem))];
+    const clses=[...new Set(OPS.map(o=>o.cls))];
+    let h=`<button class="chip on" onclick="sf('star','all',this)">全★</button>`;
+    stars.forEach(s=>h+=`<button class="chip" onclick="sf('star','${s}',this)" style="color:${STAR_C[s]}">${'★'.repeat(s)}</button>`);
+    h+=`<button class="chip on" onclick="sf('elem','all',this)">全属性</button>`;
+    elems.forEach(e=>{const es=EL_S[e]||{};h+=`<button class="chip" onclick="sf('elem','${e}',this)" style="color:${es.c}">${e}</button>`;});
+    h+=`<button class="chip on" onclick="sf('cls','all',this)">全クラス</button>`;
+    clses.forEach(c=>{const cs=CLS_S[c]||{};h+=`<button class="chip" onclick="sf('cls','${c}',this)" style="color:${cs.c}">${c}</button>`;});
+    document.getElementById('op-filters').innerHTML=h;filtersBuilt=true;
+  }
+  applyFilter();
+}
+function sf(t,v,el){
+  if(t==='star')fStar=v==='all'?'all':parseInt(v);else if(t==='elem')fElem=v;else fCls=v;
+  document.getElementById('op-filters').querySelectorAll('button').forEach(b=>{if(b.getAttribute('onclick').includes(`'${t}'`))b.classList.remove('on');});
+  el.classList.add('on');applyFilter();
+}
+function applyFilter(){
+  const f=OPS.filter(o=>(fStar==='all'||o.star===fStar)&&(fElem==='all'||o.elem===fElem)&&(fCls==='all'||o.cls===fCls));
+  document.getElementById('op-rows').innerHTML=f.map(op=>{
+    const cs=CLS_S[op.cls]||{},es=EL_S[op.elem]||{};
+    const sets=gS(op.name);
+    // 最初のセットをプレビュー表示
+    const first=sets[0]||null;
+    const prevWep=first&&first.wep?WEAPONS.find(w=>w.name===first.wep):null;
+    const prevText=first
+      ?`${prevWep?'⚔ '+prevWep.name:'武器なし'} · ${(first.slots||[]).filter(Boolean).length}ピース`
+      :'';
+    return `<div class="op-row${sets.length?' sv':''}" onclick="openOpD('${op.name}')">
+      ${avatar(op,'md')}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+          <span class="op-nm">${op.name}</span>
+          <span style="font-size:8px;color:${STAR_C[op.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(op.star||4)}</span>
+        </div>
+        <div style="display:flex;gap:3px;align-items:center;margin-bottom:1px">
+          <span class="bdg" style="background:${cs.bg};color:${cs.c}">${op.cls}</span>
+          <span class="bdg" style="background:${es.bg};color:${es.c}">${op.elem}</span>
+        </div>
+        ${first
+          ?`<div class="op-eq-preview">📌 ${first.name}${prevText?' · '+prevText:''}</div>`
+          :`<div class="op-sub">${op.weapon||''}</div>`}
+      </div>
+      ${sets.length?`<span class="sv-bdg">${sets.length}セット</span>`:'<span style="font-size:11px;color:var(--t3)">›</span>'}
+    </div>`;
+  }).join('');
+}
+function openOpD(n){
+  const op=OPS.find(o=>o.name===n);if(!op)return;
+  const cs=CLS_S[op.cls]||{},es=EL_S[op.elem]||{};
+  document.getElementById('opd-ttl').textContent=op.name;
+  const sets=gS(n);
+  let body=`<div style="padding:0 2px">
+    <div class="op-dt">
+      ${avatar(op,'lg')}
+      <div style="flex:1;min-width:0">
+        <div class="op-dt-nm">${op.name}</div>
+        <div style="display:flex;gap:3px;margin-top:2px">
+          <span style="font-size:9px;color:${STAR_C[op.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(op.star||4)}</span>
+          <span class="bdg" style="background:${cs.bg};color:${cs.c}">${op.cls}</span>
+          <span class="bdg" style="background:${es.bg};color:${es.c}">${op.elem}</span>
+        </div>
+      </div>
+    </div>
+    <button class="ge-btn" onclick="startEquip('${n}')">⚔ このキャラで装備を組む</button>`;
+  if(!sets.length){body+=`<div class="no-sv">保存済みセットはありません</div>`;}
+  else{sets.forEach(s=>{
+    const wep=s.wep?WEAPONS.find(w=>w.name===s.wep):null;
+    const ac=(s.slots||[]).filter(Boolean).length;
+    body+=`<div class="os-item" onclick="loadAndGo('${n}','${s.id}')">
+      <div class="os-body"><div class="os-name">${s.name}</div>
+        <div class="os-sub">${wep?'⚔'+wep.name:'武器なし'} · 防具${ac}ピース${s.memo?' · 📝'+s.memo.slice(0,10):''}</div></div>
+      <button class="os-del" onclick="event.stopPropagation();delSetFromD('${n}','${s.id}')">×</button>
+    </div>`;
+  });}
+  body+='</div>';
+  document.getElementById('opd-body').innerHTML=body;
+  document.getElementById('ov-opd').classList.add('on');
+}
+function startEquip(n){
+  const op=OPS.find(o=>o.name===n);if(!op)return;
+  selOp=op;selWep=null;slots=[null,null,null,null];curSetId=null;
+  document.getElementById('memo-f').value='';
+  closeOv('opd');gotoSim();updateSim();showToast(`${op.name}を選択しました`);
+}
+function loadAndGo(n,id){
+  const op=OPS.find(o=>o.name===n);if(!op)return;
+  selOp=op;loadSById(id);closeOv('opd');gotoSim();
+}
+function delSetFromD(n,id){
+  if(!confirm('削除しますか？'))return;
+  sS(n,gS(n).filter(s=>s.id!==id));
+  if(selOp&&selOp.name===n&&curSetId===id){curSetId=null;selWep=null;slots=[null,null,null,null];}
+  openOpD(n);renderOps();showToast('削除しました');
+}
+
+// Party
+function renderPartyList(){
+  const parties=gP();
+  let h='';
+  parties.forEach(p=>{
+    // パーティーカードの左ボーダー色 = メンバー1の属性色（なければデフォルト）
+    const firstOp=(p.members||[]).map(m=>m?OPS.find(o=>o.name===m.opName):null).find(Boolean);
+    const ptColor=firstOp?(EL_S[firstOp.elem]||{}).c||'var(--bd)':'var(--bd)';
+    h+=`<div class="pt-card" style="--pt-color:${ptColor}">
+      <div class="pt-hd"><div class="pt-nm">${p.name}</div>
+        <span style="font-size:8px;color:var(--t3)">${p.savedAt?new Date(p.savedAt).toLocaleDateString('ja'):''}</span></div>
+      <div class="pt-members">`;
+    for(let i=0;i<4;i++){
+      const m=(p.members||[])[i]||null;
+      const op=m?OPS.find(o=>o.name===m.opName):null;
+      const set=op&&m.setId?gSet(op.name,m.setId):null;
+      const es=op?(EL_S[op.elem]||{c:'var(--bd)'}):{c:'var(--bd)'};
+      const wep=set&&set.wep?WEAPONS.find(w=>w.name===set.wep):null;
+      const pmAv=op?avatar(op,'sm'):'';
+      h+=`<div class="pm" style="--pm-color:${es.c}" onclick="editPM('${p.id}',${i})">
+        <div class="pm-num">MEMBER ${i+1}</div>
+        ${op
+          ?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">${pmAv}<div class="pm-op">${op.name}</div></div>
+            <div class="pm-set">${set?set.name:'セット未選択'}</div>
+            ${wep?`<div class="pm-wep">⚔ ${wep.name}</div>`:''}
+            ${set&&set.memo?`<div class="pm-memo">📝 ${set.memo.slice(0,14)}</div>`:''}`
+          :`<div class="pm-ph">タップして選択</div>`}
+      </div>`;
+    }
+    h+=`</div><div class="pt-acts">
+      <button class="pb ld" onclick="loadPty('${p.id}')">📂 装備タブで確認</button>
+      <button class="pb dl" onclick="delPty('${p.id}')">🗑</button>
+    </div></div>`;
+  });
+  if(!parties.length)h='<div class="pt-empty"><div style="font-size:28px;margin-bottom:8px">👥</div>パーティーがまだありません</div>';
+  h+=`<button class="new-pt" onclick="newPty()">＋ 新しいパーティーを作成</button>`;
+  document.getElementById('party-list').innerHTML=h;
+}
+function newPty(){
+  document.getElementById('inp-pn').value='';document.getElementById('btn-pnok').disabled=true;
+  document.getElementById('ov-pn').classList.add('on');
+  setTimeout(()=>document.getElementById('inp-pn').focus(),300);
+}
+function confirmPN(){
+  const name=document.getElementById('inp-pn').value.trim();if(!name)return;
+  closeOv('pn');const parties=gP();
+  parties.unshift({id:uid(),name,members:[null,null,null,null],savedAt:Date.now()});
+  sP(parties);renderPartyList();showToast(`「${name}」を作成しました`);
+}
+function delPty(id){
+  if(!confirm('削除しますか？'))return;
+  sP(gP().filter(p=>p.id!==id));renderPartyList();showToast('削除しました');
+}
+function editPM(pid,idx){
+  ePtyId=pid;ePmIdx=idx;
+  document.getElementById('pmop-ttl').textContent=`MEMBER ${idx+1} のオペレーターを選択`;
+  document.getElementById('q-pmop').value='';renderPmOpL('');
+  document.getElementById('ov-pmop').classList.add('on');
+}
+function renderPmOpL(q){
+  const f=OPS.filter(o=>!q||o.name.includes(q));
+  const pty=gP().find(p=>p.id===ePtyId);
+  const co=pty&&pty.members[ePmIdx]?pty.members[ePmIdx].opName:null;
+  let h=`<div class="sh-none" onclick="pickPmOp(null)">— なし —</div>`;
+  h+=f.map(op=>{
+    const cs=CLS_S[op.cls]||{},es=EL_S[op.elem]||{};
+    return `<div class="sh-item${op.name===co?' sel':''}" onclick="pickPmOp('${op.name}')">
+      ${avatar(op,'md')}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${op.name}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:1px">
+          <span style="color:${STAR_C[op.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif">${'★'.repeat(op.star||4)}</span>
+          ${op.cls} / ${op.elem}
+        </div>
+      </div>
+      <span style="font-size:9px;color:var(--grn)">${gS(op.name).length}セット</span>
+    </div>`;
+  }).join('');
+  document.getElementById('list-pmop').innerHTML=h;
+}
+function fPmOp(q){renderPmOpL(q);}
+function pickPmOp(opName){
+  closeOv('pmop');const parties=gP();const p=parties.find(p=>p.id===ePtyId);if(!p)return;
+  if(!opName){p.members[ePmIdx]=null;sP(parties);renderPartyList();return;}
+  const sets=gS(opName);
+  if(!sets.length){p.members[ePmIdx]={opName,setId:null};sP(parties);renderPartyList();showToast(`${opName}をセット`);return;}
+  document.getElementById('pmset-ttl').textContent=`${opName} のセットを選択`;
+  document.getElementById('list-pmset').innerHTML=
+    `<div class="sh-none" onclick="pickPmSet('${opName}',null)">— セット未選択 —</div>`+
+    sets.map(s=>{
+      const wep=s.wep?WEAPONS.find(w=>w.name===s.wep):null;
+      const ac=(s.slots||[]).filter(Boolean).length;
+      return `<div class="sh-item" onclick="pickPmSet('${opName}','${s.id}')">
+        <div style="flex:1"><div style="font-size:13px;font-weight:700;margin-bottom:2px">${s.name}</div>
+        <div style="font-size:10px;color:var(--t3)">${wep?wep.name:'武器なし'} · 防具${ac}ピース</div></div>
+      </div>`;
+    }).join('');
+  document.getElementById('ov-pmset').classList.add('on');
+}
+function pickPmSet(opName,setId){
+  closeOv('pmset');const parties=gP();const p=parties.find(p=>p.id===ePtyId);if(!p)return;
+  p.members[ePmIdx]={opName,setId};p.savedAt=Date.now();
+  sP(parties);renderPartyList();showToast('設定しました');
+}
+function loadPty(id){
+  const p=gP().find(p=>p.id===id);if(!p)return;
+  const first=p.members?p.members.find(Boolean):null;
+  if(!first){showToast('メンバーが未設定です');return;}
+  const op=OPS.find(o=>o.name===first.opName);if(!op)return;
+  selOp=op;
+  if(first.setId)loadSById(first.setId);else{selWep=null;slots=[null,null,null,null];curSetId=null;updateSim();}
+  gotoSim();showToast(`${op.name}の装備を読み込みました`);
+}
+
+// Armor/Wep lists
+function renderArmorList(){
+  const g={};ARMORS.forEach(a=>{(g[a.set]=g[a.set]||[]).push(a);});
+  let h='';
+  Object.entries(g).forEach(([sn,items])=>{
+    const txt=(SET_EFF[sn]||{}).effect||(SET_EFF[sn]||{})[2]||'';
+    h+=`<div style="margin-bottom:14px"><div class="a-sh">${sn}<span class="a-sc">${items.length}ピース</span></div>
+      ${txt?`<div class="sef-b"><div class="sef-t">${txt}</div></div>`:''}`;
+    items.forEach(a=>{
+      const ts=[];
+      const add=(l,v,p)=>{if(v)ts.push(`${l}<b>+${v}${p?'%':''}</b>`);};
+      add('防御',a.def);add('強さ',a.str);add('敏捷',a.agi);add('知性',a.int);add('意志',a.will);
+      add('会心率',a.crit,1);add('通常UP',a.batkUp,1);add('戦技UP',a.skillUp,1);
+      add('連携UP',a.comboUp,1);add('必殺UP',a.ultUp,1);add('全スキルUP',a.allSkillUp,1);
+      add('主能力',a.mainUp,1);add('ATK%',a.atkPct,1);
+      add('物理',a.physUp,1);add('熱',a.heatUp,1);add('電気',a.elecUp,1);add('氷',a.cryoUp,1);add('自然',a.natUp,1);
+      add('アーツ強度',a.artsStr);add('ATK固定',a.atkFlat);add('HP固定',a.hpFlat);add('HP%',a.hpPct,1);add('治療',a.treatUp,1);
+      h+=`<div class="a-c"><div class="a-t"><span class="a-n">${a.name}</span><span class="a-p">${a.part}</span></div>
+        <div class="stags">${ts.map(t=>`<span class="stag">${t}</span>`).join('')}</div></div>`;
+    });
+    h+=`</div>`;
+  });
+  document.getElementById('armor-rows').innerHTML=h;
+}
+function renderWeaponList(){
+  const g={};WEAPONS.forEach(w=>{(g[w.type]=g[w.type]||[]).push(w);});
+  let h='';
+  Object.entries(g).forEach(([type,items])=>{
+    h+=`<div style="margin-bottom:14px"><div class="a-sh">${type}<span class="a-sc">${items.length}種</span></div>`;
+    items.forEach(w=>{
+      const sks=[[w.sk1Name,w.sk1Val],[w.sk2Name,w.sk2Val],[w.sk3Name,w.sk3Val]].filter(([n,v])=>n&&v);
+      h+=`<div class="w-c"><div class="w-t">
+        <span style="font-size:9px;color:${STAR_C[w.star]||'#94a3b8'};font-family:'Rajdhani',sans-serif;white-space:nowrap">${'★'.repeat(w.star||4)}</span>
+        <span class="w-n">${w.name}</span><span class="w-atk">ATK ${w.baseAtk}</span>
+      </div>${sks.length?`<div class="w-sks">${sks.map(([n,v])=>`<span class="w-sk">${n}+${v}</span>`).join('')}</div>`:''}</div>`;
+    });
+    h+=`</div>`;
+  });
+  document.getElementById('weapon-rows').innerHTML=h||'<div style="color:var(--t3);padding:12px">データがありません</div>';
+}
+
+
+// アバター生成
+function avatar(op, size='md'){
+  if(!op) return '';
+  const cls = size==='lg'?'op-bar-avatar':size==='sm'?'pm-avatar':'op-avatar';
+  const fcls = size==='lg'?'op-bar-avatar-fallback':size==='sm'?'pm-avatar-fallback':'op-avatar-fallback';
+  const es = EL_S[op.elem]||{c:'#535c7a'};
+  const fallback = `<div class="${fcls}" style="color:${es.c}">${op.name.slice(0,1)}</div>`;
+  if(op.imageUrl){
+    return `<div class="${cls}"><img src="${op.imageUrl}" alt="${op.name}" onerror="this.parentNode.innerHTML='${fallback.replace(/"/g,"'")}'" loading="lazy"></div>`;
+  }
+  return `<div class="${cls}" style="border-color:${es.c}22">${fallback}</div>`;
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1700);
+}
+
+loadData();
+</script>
+</body>
+</html>
